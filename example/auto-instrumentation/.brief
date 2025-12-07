@@ -1,0 +1,21 @@
+# OpenTelemetry Auto-Instrumentation Example
+
+ตัวอย่างการใช้ OpenTelemetry **Auto-Instrumentation** - ติดตาม Express และ HTTP requests อัตโนมัติ
+
+## 🚀 Quick Start
+
+```bash
+cd auto-instrumentation
+npm install
+npm start
+```
+
+Application จะทำงานที่: `http://localhost:3001`
+
+📖 [อ่านเอกสารฉบับเต็ม](./README.md)
+
+## ✨ คุณสมบัติ
+
+- ✅ Auto-instrument Express routes และ HTTP requests
+- ✅ ใช้โค้ดน้อย setup รวดเร็ว
+- ✅ รองรับ libraries ยอดนิยม

@@ -1,0 +1,21 @@
+# OpenTelemetry Manual-Instrumentation Example
+
+ตัวอย่างการใช้ OpenTelemetry **Manual-Instrumentation** - ควบคุมการสร้าง traces ได้อย่างละเอียด
+
+## 🚀 Quick Start
+
+```bash
+cd manual-instrumentation
+npm install
+npm start
+```
+
+Application จะทำงานที่: `http://localhost:3002`
+
+📖 [อ่านเอกสารฉบับเต็ม](./README.md)
+
+## ✨ คุณสมบัติ
+
+- ✅ ควบคุมการสร้าง span ได้เต็มที่
+- ✅ เพิ่ม custom attributes และ events
+- ✅ เหมาะสำหรับ custom business logic
