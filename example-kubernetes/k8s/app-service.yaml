@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: express-app-service
+  namespace: app
+  labels:
+    app: express-otel-app
+spec:
+  type: LoadBalancer  # เปลี่ยนเป็น NodePort หรือ ClusterIP ตามต้องการ
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: express-otel-app
+  sessionAffinity: None
