@@ -46,6 +46,29 @@ services:
     networks:
       - otel-network
 
+  # Loki for Logs
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - otel-network
+
+  # System Metrics & Logs Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - otel-collector
+    networks:
+      - otel-network
+
 networks:
   otel-network:
     driver: bridge

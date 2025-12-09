@@ -1,8 +1,9 @@
 // โหลด tracing ก่อนทุกอย่าง
-require('./tracing');
+const { logger } = require('./tracing');
 
 const express = require('express');
 const { trace } = require('@opentelemetry/api');
+const { SeverityNumber } = require('@opentelemetry/api-logs');
 
 const app = express();
 const PORT = 3001;
@@ -41,9 +42,20 @@ function processData(data) {
 
 // Routes
 app.get('/', (req, res) => {
+  // Log INFO level
+  logger.emit({
+    severityNumber: SeverityNumber.INFO,
+    severityText: 'INFO',
+    body: 'Root endpoint accessed',
+    attributes: {
+      'http.method': req.method,
+      'http.url': req.url,
+    },
+  });
+
   res.json({ 
     message: 'OpenTelemetry Auto-Instrumentation Example',
-    description: 'HTTP requests และ Express routes ถูก trace อัตโนมัติ',
+    description: 'HTTP requests และ Express routes ถูก trace อัตโนมัติ + Logs support',
     timestamp: new Date().toISOString()
   });
 });
@@ -56,6 +68,17 @@ app.get('/api/users/:id', async (req, res) => {
     const userId = req.params.id;
     span.setAttribute('user.id', userId);
     
+    // Log ว่ากำลังดึงข้อมูล user
+    logger.emit({
+      severityNumber: SeverityNumber.INFO,
+      severityText: 'INFO',
+      body: `Fetching user with ID: ${userId}`,
+      attributes: {
+        'user.id': userId,
+        'operation': 'getUserById',
+      },
+    });
+    
     // จำลองการดึงข้อมูลจากฐานข้อมูล
     await new Promise(resolve => setTimeout(resolve, 100));
     
@@ -66,10 +89,33 @@ app.get('/api/users/:id', async (req, res) => {
     };
     
     span.addEvent('user_found');
+    
+    logger.emit({
+      severityNumber: SeverityNumber.INFO,
+      severityText: 'INFO',
+      body: `User found: ${userId}`,
+      attributes: {
+        'user.id': userId,
+        'user.email': user.email,
+      },
+    });
+    
     res.json(user);
   } catch (error) {
     span.recordException(error);
     span.setStatus({ code: 2, message: error.message });
+    
+    // Log ERROR
+    logger.emit({
+      severityNumber: SeverityNumber.ERROR,
+      severityText: 'ERROR',
+      body: `Failed to fetch user: ${error.message}`,
+      attributes: {
+        'error.message': error.message,
+        'error.stack': error.stack,
+      },
+    });
+    
     res.status(500).json({ error: 'Internal Server Error' });
   } finally {
     span.end();
@@ -78,9 +124,28 @@ app.get('/api/users/:id', async (req, res) => {
 
 app.post('/api/process', (req, res) => {
   try {
+    logger.emit({
+      severityNumber: SeverityNumber.INFO,
+      severityText: 'INFO',
+      body: 'Processing data request',
+      attributes: {
+        'http.method': req.method,
+        'data': req.body.data || 'default data',
+      },
+    });
+
     const result = processData(req.body.data || 'default data');
     res.json({ result });
   } catch (error) {
+    logger.emit({
+      severityNumber: SeverityNumber.ERROR,
+      severityText: 'ERROR',
+      body: `Failed to process data: ${error.message}`,
+      attributes: {
+        'error.message': error.message,
+      },
+    });
+    
     res.status(500).json({ error: error.message });
   }
 });
@@ -93,11 +158,35 @@ app.use((err, req, res, next) => {
     span.setStatus({ code: 2, message: err.message });
   }
   
+  // Log ERROR
+  logger.emit({
+    severityNumber: SeverityNumber.ERROR,
+    severityText: 'ERROR',
+    body: `Unhandled error: ${err.message}`,
+    attributes: {
+      'error.message': err.message,
+      'error.stack': err.stack,
+      'http.method': req.method,
+      'http.url': req.url,
+    },
+  });
+  
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
 app.listen(PORT, () => {
   console.log(`🚀 Auto-Instrumentation Example running on http://localhost:${PORT}`);
-  console.log(`📊 Sending traces to OTLP collector at http://localhost:4318`);
+  console.log(`📊 Sending telemetry to OTLP collector at http://localhost:4318`);
   console.log(`✨ Express และ HTTP requests ถูก instrument อัตโนมัติ`);
+  console.log(`📝 Traces + 📈 Metrics + 🗒️  Logs enabled`);
+  
+  logger.emit({
+    severityNumber: SeverityNumber.INFO,
+    severityText: 'INFO',
+    body: 'Application started successfully',
+    attributes: {
+      'service.name': 'auto-instrumentation-example',
+      'port': PORT,
+    },
+  });
 });

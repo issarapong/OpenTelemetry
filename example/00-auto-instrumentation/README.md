@@ -14,19 +14,34 @@
 ```bash
 # ติดตั้ง dependencies
 npm install
-
-# กลับไปที่ example หลัก และเริ่ม Docker stack (ถ้ายังไม่ได้เริ่ม)
-cd ..
-docker-compose up -d
 ```
 
 ## 🚀 เริ่มต้นใช้งาน
 
+### วิธีที่ 1: รัน App แบบ standalone (แนะนำสำหรับ development)
+
 ```bash
+# 1. เริ่ม Observability Stack ก่อน (ใน example/)
+cd ..
+docker-compose up -d
+
+# 2. กลับมาที่ auto-instrumentation และรัน app
+cd auto-instrumentation
 npm start
 ```
 
+### วิธีที่ 2: รันทั้งหมดด้วย Docker Compose
+
+```bash
+# รันครบทั้ง app + observability stack
+docker-compose up --build
+```
+
 หรือใช้ development mode:
+
+```bash
+npm run dev
+```
 
 ```bash
 npm run dev

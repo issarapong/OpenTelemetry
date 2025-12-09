@@ -1,8 +1,9 @@
 const express = require('express');
 const { trace, context, SpanStatusCode } = require('@opentelemetry/api');
+const { SeverityNumber } = require('@opentelemetry/api-logs');
 
 // โหลด tracing setup
-require('./tracing');
+const { logger } = require('./tracing');
 
 const app = express();
 const PORT = 3002;
@@ -22,6 +23,18 @@ app.use((req, res, next) => {
       'http.target': req.path,
       'http.host': req.get('host'),
       'http.user_agent': req.get('user-agent'),
+    },
+  });
+
+  // Log incoming request
+  logger.emit({
+    severityNumber: SeverityNumber.INFO,
+    severityText: 'INFO',
+    body: `Incoming ${req.method} request to ${req.path}`,
+    attributes: {
+      'http.method': req.method,
+      'http.url': req.url,
+      'http.path': req.path,
     },
   });
 
@@ -148,9 +161,18 @@ app.get('/', (req, res) => {
   context.with(trace.setSpan(context.active(), span), () => {
     span.addEvent('preparing_response');
     
+    logger.emit({
+      severityNumber: SeverityNumber.INFO,
+      severityText: 'INFO',
+      body: 'Root endpoint accessed',
+      attributes: {
+        'handler': 'handleRootRequest',
+      },
+    });
+    
     const response = {
       message: 'OpenTelemetry Manual-Instrumentation Example',
-      description: 'ทุก span ถูกสร้างด้วย manual code - ควบคุมได้เต็มที่',
+      description: 'ทุก span ถูกสร้างด้วย manual code - ควบคุมได้เต็มที่ + Logs support',
       timestamp: new Date().toISOString(),
     };
     
@@ -175,6 +197,16 @@ app.get('/api/users/:id', async (req, res) => {
     try {
       const userId = req.params.id;
       
+      logger.emit({
+        severityNumber: SeverityNumber.INFO,
+        severityText: 'INFO',
+        body: `Fetching user with ID: ${userId}`,
+        attributes: {
+          'user.id': userId,
+          'operation': 'getUserById',
+        },
+      });
+      
       span.addEvent('validating_user_id');
       
       // จำลองการ validate
@@ -191,6 +223,17 @@ app.get('/api/users/:id', async (req, res) => {
         'user.status': user.status,
       });
       
+      logger.emit({
+        severityNumber: SeverityNumber.INFO,
+        severityText: 'INFO',
+        body: `User found: ${userId}`,
+        attributes: {
+          'user.id': userId,
+          'user.name': user.name,
+          'user.email': user.email,
+        },
+      });
+      
       span.setStatus({ code: SpanStatusCode.OK });
       res.json(user);
     } catch (error) {
@@ -199,6 +242,17 @@ app.get('/api/users/:id', async (req, res) => {
         code: SpanStatusCode.ERROR, 
         message: error.message 
       });
+      
+      logger.emit({
+        severityNumber: SeverityNumber.ERROR,
+        severityText: 'ERROR',
+        body: `Failed to fetch user: ${error.message}`,
+        attributes: {
+          'error.message': error.message,
+          'error.stack': error.stack,
+        },
+      });
+      
       res.status(500).json({ error: 'Internal Server Error' });
     } finally {
       span.end();
@@ -218,6 +272,16 @@ app.post('/api/process', (req, res) => {
   context.with(trace.setSpan(context.active(), span), () => {
     try {
       const inputData = req.body.data || 'default data';
+      
+      logger.emit({
+        severityNumber: SeverityNumber.INFO,
+        severityText: 'INFO',
+        body: 'Processing data request',
+        attributes: {
+          'data': inputData,
+          'endpoint': '/api/process',
+        },
+      });
       
       span.setAttribute('input.data', inputData);
       span.addEvent('processing_started');
@@ -311,11 +375,32 @@ app.use((err, req, res, next) => {
     });
   }
   
+  logger.emit({
+    severityNumber: SeverityNumber.ERROR,
+    severityText: 'ERROR',
+    body: `Unhandled error: ${err.message}`,
+    attributes: {
+      'error.message': err.message,
+      'error.stack': err.stack,
+    },
+  });
+  
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
 app.listen(PORT, () => {
   console.log(`🚀 Manual-Instrumentation Example running on http://localhost:${PORT}`);
-  console.log(`📊 Sending traces to OTLP collector at http://localhost:4318`);
+  console.log(`📊 Sending telemetry to OTLP collector at http://localhost:4318`);
   console.log(`✍️  ทุก span ถูกสร้างและควบคุมด้วย manual code`);
+  console.log(`📝 Traces + 📈 Metrics + 🗒️  Logs enabled`);
+  
+  logger.emit({
+    severityNumber: SeverityNumber.INFO,
+    severityText: 'INFO',
+    body: 'Application started successfully',
+    attributes: {
+      'service.name': 'manual-instrumentation-example',
+      'port': PORT,
+    },
+  });
 });
