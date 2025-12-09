@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenTelemetry Full Stack Tracing Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .trace-info {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #667eea;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .actions button {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Full Stack Tracing Demo</h1>
+        
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" placeholder="Enter username" value="john_doe">
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" placeholder="Enter email" value="john@example.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="action">Action:</label>
+            <select id="action">
+                <option value="create">Create User</option>
+                <option value="get">Get User by ID</option>
+                <option value="list">List All Users</option>
+                <option value="update">Update User</option>
+                <option value="delete">Delete User</option>
+            </select>
+        </div>
+        
+        <div class="form-group" id="userIdGroup" style="display: none;">
+            <label for="userId">User ID:</label>
+            <input type="number" id="userId" placeholder="Enter user ID" value="1">
+        </div>
+        
+        <button id="submitBtn" onclick="performAction()">Execute Action</button>
+        
+        <div class="actions">
+            <button onclick="getUsers()">📋 List Users</button>
+            <button onclick="getHealth()">❤️ Health Check</button>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+
+    <script type="module">
+        import { trace, context } from 'https://cdn.jsdelivr.net/npm/@opentelemetry/api@1.7.0/+esm';
+        import { WebTracerProvider } from 'https://cdn.jsdelivr.net/npm/@opentelemetry/sdk-trace-web@1.19.0/+esm';
+        import { OTLPTraceExporter } from 'https://cdn.jsdelivr.net/npm/@opentelemetry/exporter-trace-otlp-http@0.46.0/+esm';
+        import { BatchSpanProcessor } from 'https://cdn.jsdelivr.net/npm/@opentelemetry/sdk-trace-base@1.19.0/+esm';
+        import { ZoneContextManager } from 'https://cdn.jsdelivr.net/npm/@opentelemetry/context-zone@1.19.0/+esm';
+        import { Resource } from 'https://cdn.jsdelivr.net/npm/@opentelemetry/resources@1.19.0/+esm';
+        import { SemanticResourceAttributes } from 'https://cdn.jsdelivr.net/npm/@opentelemetry/semantic-conventions@1.19.0/+esm';
+        import { registerInstrumentations } from 'https://cdn.jsdelivr.net/npm/@opentelemetry/instrumentation@0.46.0/+esm';
+        import { FetchInstrumentation } from 'https://cdn.jsdelivr.net/npm/@opentelemetry/instrumentation-fetch@0.46.0/+esm';
+        import { XMLHttpRequestInstrumentation } from 'https://cdn.jsdelivr.net/npm/@opentelemetry/instrumentation-xml-http-request@0.46.0/+esm';
+
+        const BACKEND_URL = 'http://localhost:3001';
+
+        // Initialize OpenTelemetry
+        const provider = new WebTracerProvider({
+            resource: new Resource({
+                [SemanticResourceAttributes.SERVICE_NAME]: 'frontend-client',
+                [SemanticResourceAttributes.SERVICE_VERSION]: '1.0.0',
+            }),
+        });
+
+        // Configure OTLP exporter to send traces to collector
+        const exporter = new OTLPTraceExporter({
+            url: 'http://localhost:4318/v1/traces',
+        });
+
+        provider.addSpanProcessor(new BatchSpanProcessor(exporter));
+        provider.register({
+            contextManager: new ZoneContextManager(),
+        });
+
+        // Register instrumentations for automatic tracing
+        registerInstrumentations({
+            instrumentations: [
+                new FetchInstrumentation({
+                    propagateTraceHeaderCorsUrls: [
+                        /localhost:3001/,
+                    ],
+                    clearTimingResources: true,
+                }),
+                new XMLHttpRequestInstrumentation({
+                    propagateTraceHeaderCorsUrls: [
+                        /localhost:3001/,
+                    ],
+                }),
+            ],
+        });
+
+        // Get tracer
+        const tracer = trace.getTracer('frontend-tracer', '1.0.0');
+
+        // Make functions globally available
+        window.performAction = performAction;
+        window.getUsers = getUsers;
+        window.getHealth = getHealth;
+
+        // Show/hide userId field based on action
+        document.getElementById('action').addEventListener('change', function() {
+            const action = this.value;
+            const userIdGroup = document.getElementById('userIdGroup');
+            if (action === 'get' || action === 'update' || action === 'delete') {
+                userIdGroup.style.display = 'block';
+            } else {
+                userIdGroup.style.display = 'none';
+            }
+        });
+
+        async function performAction() {
+            const action = document.getElementById('action').value;
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const userId = document.getElementById('userId').value;
+
+            const span = tracer.startSpan(`frontend.${action}_user`);
+            
+            try {
+                showLoading();
+                
+                let response;
+                
+                context.with(trace.setSpan(context.active(), span), async () => {
+                    span.setAttribute('user.action', action);
+                    span.setAttribute('user.id', userId || 'N/A');
+                    span.setAttribute('user.name', username);
+                    
+                    switch(action) {
+                        case 'create':
+                            response = await fetch(`${BACKEND_URL}/users`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ username, email })
+                            });
+                            break;
+                        case 'get':
+                            response = await fetch(`${BACKEND_URL}/users/${userId}`);
+                            break;
+                        case 'list':
+                            response = await fetch(`${BACKEND_URL}/users`);
+                            break;
+                        case 'update':
+                            response = await fetch(`${BACKEND_URL}/users/${userId}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ username, email })
+                            });
+                            break;
+                        case 'delete':
+                            response = await fetch(`${BACKEND_URL}/users/${userId}`, {
+                                method: 'DELETE'
+                            });
+                            break;
+                    }
+                });
+
+                await response;
+                
+                const data = await response.json();
+                
+                span.setAttribute('http.status_code', response.status);
+                span.setAttribute('http.response.size', JSON.stringify(data).length);
+                
+                if (response.ok) {
+                    showResult('success', 'Success!', data);
+                } else {
+                    span.recordException(new Error(data.error || 'Request failed'));
+                    showResult('error', 'Error', data);
+                }
+            } catch (error) {
+                span.recordException(error);
+                span.setAttribute('error', true);
+                showResult('error', 'Error', { message: error.message });
+            } finally {
+                span.end();
+            }
+        }
+
+        async function getUsers() {
+            const span = tracer.startSpan('frontend.list_all_users');
+            
+            try {
+                showLoading();
+                
+                let response;
+                context.with(trace.setSpan(context.active(), span), async () => {
+                    span.setAttribute('user.action', 'list_all');
+                    response = await fetch(`${BACKEND_URL}/users`);
+                });
+
+                await response;
+                const data = await response.json();
+                
+                span.setAttribute('http.status_code', response.status);
+                span.setAttribute('users.count', data.length);
+                
+                showResult('success', 'Users Retrieved', data);
+            } catch (error) {
+                span.recordException(error);
+                showResult('error', 'Error', { message: error.message });
+            } finally {
+                span.end();
+            }
+        }
+
+        async function getHealth() {
+            const span = tracer.startSpan('frontend.health_check');
+            
+            try {
+                showLoading();
+                
+                let response;
+                context.with(trace.setSpan(context.active(), span), async () => {
+                    span.setAttribute('health.check', true);
+                    response = await fetch(`${BACKEND_URL}/health`);
+                });
+
+                await response;
+                const data = await response.json();
+                
+                span.setAttribute('http.status_code', response.status);
+                span.setAttribute('health.status', data.status);
+                
+                showResult('success', 'Health Check', data);
+            } catch (error) {
+                span.recordException(error);
+                showResult('error', 'Error', { message: error.message });
+            } finally {
+                span.end();
+            }
+        }
+
+        function showLoading() {
+            const result = document.getElementById('result');
+            result.className = 'info';
+            result.style.display = 'block';
+            result.innerHTML = '<div class="loader"></div>Processing request...';
+            document.getElementById('submitBtn').disabled = true;
+        }
+
+        function showResult(type, title, data) {
+            const result = document.getElementById('result');
+            result.className = type;
+            result.style.display = 'block';
+            
+            const spanContext = trace.getActiveSpan()?.spanContext();
+            const traceInfo = spanContext ? `
+                <div class="trace-info">
+                    <strong>Trace ID:</strong> ${spanContext.traceId}<br>
+                    <strong>Span ID:</strong> ${spanContext.spanId}
+                </div>
+            ` : '';
+            
+            result.innerHTML = `
+                <strong>${title}</strong>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+                ${traceInfo}
+            `;
+            document.getElementById('submitBtn').disabled = false;
+        }
+
+        console.log('✅ OpenTelemetry initialized for frontend');
+    </script>
+</body>
+</html>

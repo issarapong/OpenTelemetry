@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'fullstack-tracing-demo'
+
+scrape_configs:
+  # OpenTelemetry Collector metrics
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8888', 'otel-collector:8889']
+        labels:
+          service: 'otel-collector'
+          environment: 'docker'
+
+  # Backend API metrics (if exposed)
+  - job_name: 'backend-api'
+    static_configs:
+      - targets: ['backend:3001']
+        labels:
+          service: 'backend-api'
+          environment: 'docker'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
