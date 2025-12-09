@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # Auto-Instrumentation Services
+  service-a-auto:
+    build:
+      context: ./auto-instrumentation/service-a
+      dockerfile: Dockerfile
+    container_name: service-a-auto
+    ports:
+      - "3010:3010"
+    environment:
+      - SERVICE_B_URL=http://service-b-auto:3011
+    networks:
+      - otel-network
+    depends_on:
+      - service-b-auto
+
+  service-b-auto:
+    build:
+      context: ./auto-instrumentation/service-b
+      dockerfile: Dockerfile
+    container_name: service-b-auto
+    ports:
+      - "3011:3011"
+    environment:
+      - SERVICE_C_URL=http://service-c-auto:3012
+    networks:
+      - otel-network
+    depends_on:
+      - service-c-auto
+
+  service-c-auto:
+    build:
+      context: ./auto-instrumentation/service-c
+      dockerfile: Dockerfile
+    container_name: service-c-auto
+    ports:
+      - "3012:3012"
+    networks:
+      - otel-network
+
+  # Manual-Instrumentation Services
+  service-a-manual:
+    build:
+      context: ./manual-instrumentation/service-a
+      dockerfile: Dockerfile
+    container_name: service-a-manual
+    ports:
+      - "3020:3020"
+    environment:
+      - SERVICE_B_URL=http://service-b-manual:3021
+    networks:
+      - otel-network
+    depends_on:
+      - service-b-manual
+
+  service-b-manual:
+    build:
+      context: ./manual-instrumentation/service-b
+      dockerfile: Dockerfile
+    container_name: service-b-manual
+    ports:
+      - "3021:3021"
+    environment:
+      - SERVICE_C_URL=http://service-c-manual:3022
+    networks:
+      - otel-network
+    depends_on:
+      - service-c-manual
+
+  service-c-manual:
+    build:
+      context: ./manual-instrumentation/service-c
+      dockerfile: Dockerfile
+    container_name: service-c-manual
+    ports:
+      - "3022:3022"
+    networks:
+      - otel-network
+
+networks:
+  otel-network:
+    external: true
+    name: example_otel-network

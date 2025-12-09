@@ -16,6 +16,12 @@
 - เรียนรู้การทำงานของ OpenTelemetry อย่างลึกซึ้ง
 - Port: `3002`
 
+### 🌐 [Distributed-Tracing Example](./distributed-tracing/)
+- Trace requests ข้ามหลาย microservices (A → B → C)
+- แสดงทั้ง Auto และ Manual context propagation
+- เหมาะสำหรับเรียนรู้ microservices tracing
+- Ports: `3010-3012` (Auto), `3020-3022` (Manual)
+
 ## 📋 ข้อกำหนดเบื้องต้น
 
 - Node.js 16+ 
@@ -55,6 +61,18 @@ cd auto-instrumentation && npm install && npm start
 cd manual-instrumentation && npm install && npm start
 ```
 
+**Distributed-Tracing (Microservices):**
+```bash
+cd distributed-tracing
+
+# ดู README สำหรับคำแนะนำโดยละเอียด
+cat README.md
+
+# รัน local (6 terminals สำหรับ 6 services)
+# หรือใช้ Docker Compose
+docker-compose up --build
+```
+
 
 ## 🧪 ทดสอบ API
 
@@ -91,6 +109,26 @@ curl -X POST http://localhost:3002/api/process \
 curl http://localhost:3002/api/complex
 ```
 
+### Distributed-Tracing Example
+
+**Auto-Instrumentation (Ports 3010-3012):**
+```bash
+# ทดสอบ distributed request (A → B → C)
+curl http://localhost:3010/api/orders/12345
+
+# ทดสอบ parallel calls
+curl http://localhost:3010/api/dashboard
+```
+
+**Manual-Instrumentation (Ports 3020-3022):**
+```bash
+# ทดสอบ distributed request (A → B → C)
+curl http://localhost:3020/api/orders/67890
+
+# ทดสอบ parallel calls
+curl http://localhost:3020/api/dashboard
+```
+
 
 ## 🔍 เข้าถึง Observability Tools
 
@@ -117,24 +155,35 @@ example/
 │   ├── package.json                # Dependencies
 │   └── README.md                   # เอกสารโดยละเอียด
 │
-└── manual-instrumentation/         # Manual-Instrumentation Example
-    ├── app.js                      # Express app with manual spans
-    ├── tracing.js                  # SDK config without auto-instrumentations
-    ├── package.json                # Dependencies
+├── manual-instrumentation/         # Manual-Instrumentation Example
+│   ├── app.js                      # Express app with manual spans
+│   ├── tracing.js                  # SDK config without auto-instrumentations
+│   ├── package.json                # Dependencies
+│   └── README.md                   # เอกสารโดยละเอียด
+│
+└── distributed-tracing/            # Distributed-Tracing Example
+    ├── auto-instrumentation/       # Auto context propagation
+    │   ├── service-a/              # Frontend API (Port 3010)
+    │   ├── service-b/              # Backend API (Port 3011)
+    │   └── service-c/              # Database Service (Port 3012)
+    ├── manual-instrumentation/     # Manual context propagation
+    │   ├── service-a/              # Frontend API (Port 3020)
+    │   ├── service-b/              # Backend API (Port 3021)
+    │   └── service-c/              # Database Service (Port 3022)
+    ├── docker-compose.yml          # Run all microservices
     └── README.md                   # เอกสารโดยละเอียด
 ```
 
-## 🎯 เปรียบเทียบทั้งสองแบบ
+## 🎯 เปรียบเทียบทั้งสามแบบ
 
-| คุณสมบัติ | Auto-Instrumentation | Manual-Instrumentation |
-|----------|---------------------|----------------------|
-| **Setup Time** | ⚡ รวดเร็วมาก | 🐢 ใช้เวลามากกว่า |
-| **Code Amount** | ✅ น้อยมาก | ❌ เยอะกว่า |
-| **Framework Coverage** | ✅ ครอบคลุมทั้ง framework | ⚠️ ต้องเขียนเอง |
-| **Customization** | ⚠️ จำกัดตาม config | ✅ ควบคุมได้เต็มที่ |
-| **Performance Control** | ✅ Optimized โดย default | ✅ Optimize ได้ตามต้องการ |
-| **Learning Curve** | ✅ ง่าย | ⚠️ ยากกว่า |
-| **Use Case** | Quick start, Production | Custom logic, Fine control |
+| คุณสมบัติ | Auto-Instrumentation | Manual-Instrumentation | Distributed-Tracing |
+|----------|---------------------|----------------------|---------------------|
+| **Complexity** | ✅ ต่ำ | ❌ สูง | ⚠️ กลาง-สูง |
+| **Setup Time** | ⚡ รวดเร็วมาก | 🐢 ใช้เวลามากกว่า | 🏗️ ต้อง setup หลาย services |
+| **Code Amount** | ✅ น้อยมาก | ❌ เยอะกว่า | 📦 หลาย services |
+| **Use Case** | Single app | Single app | Microservices |
+| **Context Propagation** | ✅ อัตโนมัติ | ✍️ Manual | 🔗 ข้าม services |
+| **Learning Value** | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
 
 ## 🎓 เมื่อไหร่ควรใช้แบบไหน?
 
@@ -150,8 +199,16 @@ example/
 - ⚡ Performance optimization เป็นสิ่งสำคัญ
 - 📚 ต้องการเรียนรู้ OpenTelemetry อย่างลึกซึ้ง
 
-### หรือใช้ทั้งสอง!
-คุณสามารถใช้ auto-instrumentation เป็นพื้นฐาน และเพิ่ม manual spans สำหรับ business logic เฉพาะได้!
+### ใช้ Distributed-Tracing เมื่อ:
+- 🌐 มี microservices architecture
+- 🔗 ต้องการ trace requests ข้าม services
+- 📊 วิเคราะห์ service-to-service communication
+- 🐛 Debug issues ในระบบ distributed
+
+### หรือใช้ทั้งหมด!
+- Auto สำหรับ HTTP/Express (พื้นฐาน)
+- Manual สำหรับ business-critical operations
+- Distributed สำหรับ microservices communication
 
 ## 💡 คุณสมบัติที่แสดงในตัวอย่าง
 
@@ -174,6 +231,13 @@ example/
 - ✅ **OTLP Export**: ส่งข้อมูลไปยัง OpenTelemetry Collector
 - ✅ **Metrics Export**: ส่งข้อมูล metrics พร้อม traces
 - ✅ **Resource Attributes**: กำหนด service name และ version
+
+### Distributed-Tracing Example:
+- ✅ **Context Propagation**: ส่ง trace context ข้าม services
+- ✅ **W3C Trace Context**: ใช้ standard W3C headers
+- ✅ **Service-to-Service Tracing**: ติดตาม requests ข้ามหลาย services
+- ✅ **Microservices Pattern**: แสดงสถาปัตยกรรม A → B → C
+- ✅ **Auto vs Manual**: เปรียบเทียบทั้งสองวิธี
 
 
 ## 🛠️ การปรับแต่ง
@@ -244,11 +308,14 @@ docker-compose down -v
 ### เอกสารโดยละเอียด
 - [Auto-Instrumentation Example - README](./auto-instrumentation/README.md)
 - [Manual-Instrumentation Example - README](./manual-instrumentation/README.md)
+- [Distributed-Tracing Example - README](./distributed-tracing/README.md)
 
 ### OpenTelemetry Documentation
 - [OpenTelemetry JavaScript Documentation](https://opentelemetry.io/docs/instrumentation/js/)
 - [Auto-Instrumentation](https://opentelemetry.io/docs/instrumentation/js/automatic/)
 - [Manual Instrumentation](https://opentelemetry.io/docs/instrumentation/js/instrumentation/)
+- [Distributed Tracing](https://opentelemetry.io/docs/concepts/signals/traces/)
+- [Context Propagation](https://opentelemetry.io/docs/instrumentation/js/propagation/)
 - [Express Instrumentation](https://opentelemetry.io/docs/instrumentation/js/libraries/)
 - [OTLP Exporter](https://opentelemetry.io/docs/reference/specification/protocol/otlp/)
 
