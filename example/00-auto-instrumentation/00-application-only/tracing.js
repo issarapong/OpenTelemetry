@@ -22,17 +22,17 @@ const resource = Resource.default().merge(
 
 // ตั้งค่า Trace Exporter
 const traceExporter = new OTLPTraceExporter({
-  url: 'http://localhost:4318/v1/traces', // OTLP HTTP endpoint
+  url: 'http://otel-collector:4318/v1/traces', // OTLP HTTP endpoint
 });
 
 // ตั้งค่า Metric Exporter
 const metricExporter = new OTLPMetricExporter({
-  url: 'http://localhost:4318/v1/metrics',
+  url: 'http://otel-collector:4318/v1/metrics',
 });
 
 // ตั้งค่า Log Exporter และ Logger Provider
 const logExporter = new OTLPLogExporter({
-  url: 'http://localhost:4318/v1/logs',
+  url: 'http://otel-collector:4318/v1/logs',
 });
 
 const loggerProvider = new LoggerProvider({
@@ -78,9 +78,9 @@ const sdk = new NodeSDK({
 sdk.start();
 
 console.log('📊 OpenTelemetry Auto-Instrumentation initialized (Traces + Metrics + Logs)');
-console.log('📝 Traces: http://localhost:4318/v1/traces');
-console.log('📈 Metrics: http://localhost:4318/v1/metrics');
-console.log('🗒️  Logs: http://localhost:4318/v1/logs');
+console.log('📝 Traces: http://otel-collector:4318/v1/traces');
+console.log('📈 Metrics: http://otel-collector:4318/v1/metrics');
+console.log('🗒️  Logs: http://otel-collector:4318/v1/logs');
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
@@ -93,20 +93,10 @@ process.on('SIGTERM', () => {
     .finally(() => process.exit(0));
 });
 
-// Export logger สำหรับใช้ใน application
-module.exports = { logger };
 console.log('✨ Auto-instrumentations enabled:');
 console.log('   - Express');
 console.log('   - HTTP/HTTPS');
 console.log('   - และอื่นๆ ตาม default configuration');
 
-// ปิด SDK อย่างถูกต้องเมื่อแอปพลิเคชันหยุดทำงาน
-process.on('SIGTERM', () => {
-  sdk
-    .shutdown()
-    .then(() => console.log('Tracing terminated'))
-    .catch((error) => console.log('Error terminating tracing', error))
-    .finally(() => process.exit(0));
-});
-
-module.exports = sdk;
+// Export logger และ sdk สำหรับใช้ใน application
+module.exports = { logger, sdk };

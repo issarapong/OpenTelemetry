@@ -1,0 +1,74 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133 #health_check (port 13133) - ตรวจสอบสถานะ Collector
+  
+  pprof:
+    endpoint: 0.0.0.0:1777 #pprof (port 1777) - วิเคราะห์ performance
+  
+  zpages:
+    endpoint: 0.0.0.0:55679 # zpages (port 55679) - ดูสถานะ pipeline แบบ real-time
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+  
+  resource:
+    attributes:
+      - key: service.name
+        action: upsert
+        from_attribute: service.name
+      - key: loki.resource.labels
+        action: insert
+        value: service.name, service.namespace
+  
+  attributes:
+    actions:
+      - key: loki.attribute.labels
+        action: insert
+        value: trace_id, span_id
+
+exporters:
+  logging:  # Log to console for debugging purposes, can be removed in production
+    loglevel: debug
+  
+  otlp: # Application traces exporter to Tempo
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  prometheus: # Application metrics exporter to Prometheus
+    endpoint: 0.0.0.0:8889
+
+  loki: # Application logs exporter to Loki
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: true
+      job: true
+
+service:
+  extensions: [health_check, pprof, zpages]
+  
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging, otlp]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging, prometheus]
+
+    logs:
+      receivers: [otlp]
+      processors: [resource, attributes, batch]
+      exporters: [logging, loki]

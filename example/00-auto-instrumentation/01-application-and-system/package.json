@@ -1,0 +1,35 @@
+{
+  "name": "opentelemetry-auto-instrumentation-example",
+  "version": "1.0.0",
+  "description": "ตัวอย่างการใช้ OpenTelemetry Auto-Instrumentation กับ Express.js",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "keywords": [
+    "opentelemetry",
+    "express",
+    "auto-instrumentation",
+    "observability",
+    "tracing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@opentelemetry/sdk-node": "^0.56.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.52.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.56.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.56.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.56.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/api-logs": "^0.56.0",
+    "@opentelemetry/sdk-logs": "^0.56.0",
+    "@opentelemetry/resources": "^1.28.0",
+    "@opentelemetry/semantic-conventions": "^1.28.0",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

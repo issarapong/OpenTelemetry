@@ -1,0 +1,29 @@
+version: "3"
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest # ต้องใช้ Contrib เพื่อ Tail Sampling
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4318:4318"
+    depends_on:
+      - jaeger
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+
+  # 🎯 เฉลยข้อ: Sidecar Pattern (Concept)
+  # การรัน App คู่กับ Collector ใน Network เดียวกัน (ใน K8s คือ Pod เดียวกัน)
+  # ทำให้ App ส่งหา Collector ผ่าน localhost ได้เลย
+  my-app:
+    build: . # ต้องสร้าง Dockerfile (ดูข้างล่าง)
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    ports:
+      - "3000:3000"
+    depends_on:
+      - otel-collector

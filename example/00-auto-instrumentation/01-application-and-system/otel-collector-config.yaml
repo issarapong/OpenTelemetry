@@ -1,0 +1,90 @@
+receivers:
+  # Application telemetry
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+  
+  # System/Host metrics
+  hostmetrics:
+    collection_interval: 10s
+    root_path: /hostfs  # Point to host filesystem
+    scrapers:
+      cpu:
+      memory:
+      disk:
+      filesystem:
+        exclude_mount_points:
+          mount_points: ["/dev/*", "/proc/*", "/sys/*", "/var/lib/docker/*", "/var/lib/kubelet/*"]
+          match_type: regexp
+        exclude_fs_types:
+          fs_types: ["autofs", "binfmt_misc", "bpf", "cgroup2", "configfs", "debugfs", "devpts", "devtmpfs", "fusectl", "hugetlbfs", "iso9660", "mqueue", "nsfs", "overlay", "proc", "procfs", "pstore", "rpc_pipefs", "securityfs", "selinuxfs", "squashfs", "sysfs", "tracefs"]
+          match_type: strict
+      load:
+      network:
+      paging:
+      process:
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133 #health_check (port 13133) - ตรวจสอบสถานะ Collector
+  
+  pprof:
+    endpoint: 0.0.0.0:1777 #pprof (port 1777) - วิเคราะห์ performance
+  
+  zpages:
+    endpoint: 0.0.0.0:55679 # zpages (port 55679) - ดูสถานะ pipeline แบบ real-time
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+  
+  # Add resource attributes to identify source
+  resource:
+    attributes:
+      - key: service.name
+        value: system-metrics
+        action: insert
+      - key: deployment.environment
+        value: development
+        action: insert
+
+exporters:
+  logging:  # Log to console for debugging purposes, can be removed in production
+    loglevel: debug
+  
+  otlp:
+service:
+  extensions: [health_check, pprof, zpages]
+  
+  pipelines:
+    # Application traces
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging, otlp]
+    
+    # Application + System metrics
+    metrics:
+      receivers: [otlp, hostmetrics]
+      processors: [batch, resource]
+      exporters: [logging, prometheus]
+
+    # Application logs
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging, loki]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging, prometheus]
+
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging, loki]

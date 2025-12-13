@@ -1,0 +1,56 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: "0.0.0.0:4318"
+      grpc:
+        endpoint: "0.0.0.0:4317"
+
+processors:
+  batch:
+
+  # -------------------------------------------------------
+  # 🎯 เฉลยข้อ: Tail Sampling & Memory Pressure
+  # 1. ต้องใช้ Tail Sampling เพื่อเลือกเก็บ Error 100%
+  # 2. ต้องใส่ limit_mib เพื่อป้องกัน RAM เต็ม (Memory Pressure)
+  # -------------------------------------------------------
+  tail_sampling:
+    decision_wait: 5s
+    num_traces: 100
+    expected_new_traces_per_sec: 10
+    policies:
+      [
+        {
+          name: error-policy,
+          type: status_code,
+          status_code: { status_codes: [ERROR] }
+        },
+        {
+          name: random-policy,
+          type: probabilistic,
+          probabilistic: { sampling_percentage: 50 }
+        }
+      ]
+
+exporters:
+  # 🎯 เฉลยข้อ: Debug Exporter (Visualize Data)
+  debug:
+    verbosity: detailed
+
+  # 🎯 เฉลยข้อ: Change Backend w/o Code
+  # ถ้าวันหน้าอยากเปลี่ยนไปใช้ Prometheus หรือ Zipkin ก็แก้แค่ตรงนี้!
+  otlp/jaeger:
+    endpoint: "jaeger:4317"
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [tail_sampling, batch] 
+      exporters: [debug, otlp/jaeger] # ส่งออก 2 ทาง
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug] # Metrics ก็ส่งออก Debug ได้
